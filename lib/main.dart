@@ -1,111 +1,230 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'models/item.dart';
 
-void main() => runApp(MyApp());
+void main() => runApp(ListaCompras());
 
-class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+class ListaCompras extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      home: HomePage(),
+      title: "Lista de Compras",
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.deepPurple,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+class HomePage extends StatefulWidget {
+  var items = new List<Item>();
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  HomePage() {
+    items = [];
+  }
 
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  _HomePageState createState() => _HomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomePageState extends State<HomePage> {
+  var newTaskCtrl = TextEditingController();
 
-  void _incrementCounter() {
+  showAlertDialog(BuildContext context) {
+    if (widget.items.isNotEmpty) {
+      // set up the buttons
+      Widget cancelButton = FlatButton(
+        child: Text("CANCELAR"),
+        onPressed: () => Navigator.of(context).pop(),
+      );
+      Widget continueButton = FlatButton(
+        child: Text("LIMPAR"),
+        onPressed: limparLista,
+      );
+
+      // set up the AlertDialog
+      AlertDialog alert = AlertDialog(
+        title: Text("Apagar a lista"),
+        content: Text("Deseja apagar toda a lista?"),
+        actions: [
+          cancelButton,
+          continueButton,
+        ],
+      );
+
+      // show the dialog
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return alert;
+        },
+      );
+    }
+  }
+
+  void addItem() {
+    if (newTaskCtrl.text.isEmpty) return;
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      widget.items.add(
+        Item(
+          title: newTaskCtrl.text,
+          done: false,
+        ),
+      );
+      newTaskCtrl.clear();
+      save();
     });
+  }
+
+  void removeItem(int index) {
+    setState(() {
+      widget.items.removeAt(index);
+      save();
+    });
+  }
+
+  void limparLista() {
+    setState(() {
+      widget.items.clear();
+    });
+    Navigator.of(context).pop();
+    save();
+  }
+
+  Future load() async {
+    var prefs = await SharedPreferences.getInstance();
+    var data = prefs.getString('data');
+
+    if (data != null) {
+      Iterable decoded = jsonDecode(data);
+      List<Item> result = decoded.map((x) => Item.fromJson(x)).toList();
+      setState(() {
+        widget.items = result;
+      });
+    }
+  }
+
+  save() async {
+    var prefs = await SharedPreferences.getInstance();
+    await prefs.setString('data', jsonEncode(widget.items));
+    print('salvou');
+  }
+
+  _HomePageState() {
+    load();
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+//          leading: Icon(Icons.shopping_cart),
+        title: Text(
+          "Lista de Compras",
+          style: TextStyle(
+            fontSize: 20,
+            letterSpacing: 2,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        actions: <Widget>[
+          IconButton(
+            onPressed: () => showAlertDialog(context),
+            icon: Icon(
+              Icons.remove_shopping_cart,
+              size: 30,
+              color: Colors.black54,
+            ),
+          )
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
+      body: Column(
+        children: <Widget>[
+          TextFormField(
+            autocorrect: true,
+            controller: newTaskCtrl,
+            cursorWidth: 3,
+            decoration: InputDecoration(
+              labelText: "Novo Item",
+              labelStyle: TextStyle(
+                color: Colors.deepPurple,
+              ),
+              hintText: "ex: tomates",
+              hintStyle: TextStyle(color: Colors.grey[500]),
+              prefixIcon: Icon(Icons.add_shopping_cart),
+              suffixIcon: IconButton(
+                icon: Icon(Icons.add),
+                color: Colors.red,
+                iconSize: 25,
+                onPressed: addItem,
+              ),
+              contentPadding: EdgeInsets.all(10.0),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
+            enableSuggestions: true,
+            onFieldSubmitted: (v) => addItem(),
+            keyboardType: TextInputType.text,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.purple[900],
             ),
-          ],
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: widget.items.length,
+              itemBuilder: (BuildContext context, int index) {
+                final item = widget.items[index];
+                return Dismissible(
+                  onDismissed: (direction) {
+                    removeItem(index);
+                  },
+                  background: Container(
+                    color: Colors.grey[200],
+                  ),
+                  key: Key(item.title),
+                  child: CheckboxListTile(
+                    checkColor: Colors.white,
+                    selected: true,
+                    title: Text(
+                      item.title,
+                      style: TextStyle(
+                        fontSize: 18,
+                      ),
+                    ),
+                    value: item.done,
+                    onChanged: (value) {
+                      setState(() {
+                        item.done = value;
+                        save();
+                      });
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        child: Container(
+          child: Center(
+            child: Text(
+              "by Celso Araújo",
+              style: TextStyle(
+                color: Colors.purple,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          color: Colors.deepPurple[100],
+          height: 35.0,
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
